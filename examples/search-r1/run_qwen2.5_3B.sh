@@ -1,4 +1,6 @@
 #!/bin/bash
+export WANDB_BASE_URL=https://api.bandw.top
+export WANDB_API_KEY=${WANDB_API_KEY:-2347c8de201d6448b4ff8635617e3901eaff0e04}
 
 # for rerun the task
 pkill -9 sglang
@@ -13,10 +15,19 @@ pkill -9 python
 set -ex
 
 # will prevent ray from buffering stdout/stderr
+export CUDA_VISIBLE_DEVICES="2,7,6,3"
 export PYTHONBUFFERED=16
 
+NVLINK_COUNT=$(nvidia-smi | grep -o "NVLink" | wc -l)
+if [ "$NVLINK_COUNT" -gt 0 ]; then
+    HAS_NVLINK=1
+else
+    HAS_NVLINK=0
+fi
+echo "HAS_NVLINK: $HAS_NVLINK (detected $NVLINK_COUNT NVLink references)"
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-source "${SCRIPT_DIR}/../../scripts/models/qwen2.5-3B.sh"
+source "/lc/data/slime/scripts/models/qwen3-4B.sh"
 
 CKPT_ARGS=(
    --hf-checkpoint /root/Qwen2.5-3B/

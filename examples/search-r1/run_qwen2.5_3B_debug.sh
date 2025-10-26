@@ -27,7 +27,7 @@ fi
 echo "HAS_NVLINK: $HAS_NVLINK (detected $NVLINK_COUNT NVLink references)"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-source "/lc/data/slime/scripts/models/qwen3-4B.sh"
+source "/lc/data/slime/scripts/models/qwen2.5-3B.sh"
 
 CKPT_ARGS=(
    --hf-checkpoint /lc/data/models/Qwen2.5-3B-Instruct/
@@ -45,17 +45,17 @@ ROLLOUT_ARGS=(
    --apply-chat-template
    --rollout-shuffle
    --num-rollout 3000
-   --rollout-batch-size 4
-   --n-samples-per-prompt 2
+   --rollout-batch-size 8
+   --n-samples-per-prompt 1
    --rollout-max-response-len 512
-   --rollout-temperature 0.8
+   --rollout-temperature 0.3
 
    --global-batch-size 8
    --balance-data
 )
 
 PERF_ARGS=(
-   --tensor-model-parallel-size 2
+   --tensor-model-parallel-size 1
    --sequence-parallel
    --pipeline-model-parallel-size 1
    --context-parallel-size 1
@@ -139,7 +139,6 @@ ray job submit --address="http://127.0.0.1:8265" \
    --rollout-num-gpus 1 \
    --colocate \
    --debug-rollout-only \
-
    ${MODEL_ARGS[@]} \
    ${CKPT_ARGS[@]} \
    ${ROLLOUT_ARGS[@]} \

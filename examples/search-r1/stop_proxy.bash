@@ -1,64 +1,109 @@
 #!/bin/bash
-# Clash 代理停止脚本
+# 停止完整的网页抓取服务栈
 
+# ========== 配置 ==========
 CLASH_DIR="/lc/data/script/clash"
-PID_FILE="${CLASH_DIR}/clash.pid"
+CLASH_PID_FILE="${CLASH_DIR}/clash.pid"
+
+FETCH_SERVICE_DIR="/lc/data/deep_report-0811"
+FETCH_SERVICE_PID_FILE="${FETCH_SERVICE_DIR}/fetch_service.pid"
 
 echo "=========================================="
-echo "停止 Clash 代理服务"
+echo "停止网页抓取服务栈"
 echo "=========================================="
+echo ""
 
-# 检查 PID 文件是否存在
-if [ ! -f "${PID_FILE}" ]; then
-    echo "⚠️  PID 文件不存在"
-    echo "   尝试查找 clash 进程..."
+# ========== 停止抓取服务 ==========
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "停止 Playwright 抓取服务"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-    CLASH_PID=$(ps aux | grep '[c]lash -d' | awk '{print $2}')
+if [ -f "${FETCH_SERVICE_PID_FILE}" ]; then
+    FETCH_PID=$(cat "${FETCH_SERVICE_PID_FILE}")
+    echo "PID: ${FETCH_PID}"
 
-    if [ -z "${CLASH_PID}" ]; then
-        echo "✅ Clash 未在运行"
-        exit 0
+    if ps -p "${FETCH_PID}" > /dev/null 2>&1; then
+        echo "🛑 停止进程..."
+        kill "${FETCH_PID}"
+        sleep 2
+
+        # 验证是否已停止
+        if ps -p "${FETCH_PID}" > /dev/null 2>&1; then
+            echo "⚠️  进程未响应，强制停止..."
+            kill -9 "${FETCH_PID}"
+            sleep 1
+        fi
+
+        if ps -p "${FETCH_PID}" > /dev/null 2>&1; then
+            echo "❌ 无法停止进程"
+        else
+            echo "✅ 服务已停止"
+            rm -f "${FETCH_SERVICE_PID_FILE}"
+        fi
     else
-        echo "   找到进程: ${CLASH_PID}"
+        echo "⚠️  进程不存在"
+        rm -f "${FETCH_SERVICE_PID_FILE}"
     fi
 else
-    CLASH_PID=$(cat "${PID_FILE}")
-    echo "PID 文件: ${PID_FILE}"
-    echo "进程 PID: ${CLASH_PID}"
+    echo "⚠️  PID 文件不存在"
+
+    # 尝试查找进程
+    FETCH_PIDS=$(ps aux | grep '[t]ool_fast_api.py' | awk '{print $2}')
+    if [ -n "${FETCH_PIDS}" ]; then
+        echo "   找到进程: ${FETCH_PIDS}"
+        echo "   手动停止: kill ${FETCH_PIDS}"
+    else
+        echo "✅ 服务未运行"
+    fi
 fi
 
-# 检查进程是否存在
-if ! ps -p "${CLASH_PID}" > /dev/null 2>&1; then
-    echo "⚠️  进程 ${CLASH_PID} 不存在"
-    rm -f "${PID_FILE}"
-    echo "✅ 已清理 PID 文件"
-    exit 0
-fi
+echo ""
 
-# 停止进程
-echo "🛑 停止进程 ${CLASH_PID}..."
-kill "${CLASH_PID}"
+# ========== 停止 Clash ==========
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "停止 Clash 代理服务"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 等待进程退出
-sleep 2
+if [ -f "${CLASH_PID_FILE}" ]; then
+    CLASH_PID=$(cat "${CLASH_PID_FILE}")
+    echo "PID: ${CLASH_PID}"
 
-# 验证是否已停止
-if ps -p "${CLASH_PID}" > /dev/null 2>&1; then
-    echo "⚠️  进程未响应，尝试强制停止..."
-    kill -9 "${CLASH_PID}"
-    sleep 1
-fi
+    if ps -p "${CLASH_PID}" > /dev/null 2>&1; then
+        echo "🛑 停止进程..."
+        kill "${CLASH_PID}"
+        sleep 2
 
-# 再次验证
-if ps -p "${CLASH_PID}" > /dev/null 2>&1; then
-    echo "❌ 无法停止进程 ${CLASH_PID}"
-    exit 1
+        # 验证是否已停止
+        if ps -p "${CLASH_PID}" > /dev/null 2>&1; then
+            echo "⚠️  进程未响应，强制停止..."
+            kill -9 "${CLASH_PID}"
+            sleep 1
+        fi
+
+        if ps -p "${CLASH_PID}" > /dev/null 2>&1; then
+            echo "❌ 无法停止进程"
+        else
+            echo "✅ Clash 已停止"
+            rm -f "${CLASH_PID_FILE}"
+        fi
+    else
+        echo "⚠️  进程不存在"
+        rm -f "${CLASH_PID_FILE}"
+    fi
 else
-    echo "✅ 进程已停止"
-    rm -f "${PID_FILE}"
-    echo "✅ 已清理 PID 文件"
+    echo "⚠️  PID 文件不存在"
+
+    # 尝试查找进程
+    CLASH_PIDS=$(ps aux | grep '[c]lash -d' | awk '{print $2}')
+    if [ -n "${CLASH_PIDS}" ]; then
+        echo "   找到进程: ${CLASH_PIDS}"
+        echo "   手动停止: kill ${CLASH_PIDS}"
+    else
+        echo "✅ Clash 未运行"
+    fi
 fi
 
+echo ""
 echo "=========================================="
-echo "✅ Clash 代理已停止"
+echo "✅ 服务栈已停止"
 echo "=========================================="
