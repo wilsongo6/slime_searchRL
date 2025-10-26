@@ -63,13 +63,17 @@ async def fetch(session: aiohttp.ClientSession, url: str, semaphore: asyncio.Sem
         except (aiohttp.ClientError, asyncio.TimeoutError):
             return ""
 
-# 并发抓取多个URL
-async def fetch_all(urls: List[str], limit: int = 8) -> List[str]:
+# 并发抓取多个URL（访问国外网站，需要代理）
+async def fetch_all(urls: List[str], limit: int = 8, proxy=None) -> List[str]:
     semaphore = asyncio.Semaphore(limit)
     timeout = aiohttp.ClientTimeout(total=5)
     connector = aiohttp.TCPConnector(limit_per_host=limit, force_close=True)
 
-    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+    session_kwargs = {"timeout": timeout, "connector": connector}
+    if proxy:
+        session_kwargs["proxy"] = proxy
+
+    async with aiohttp.ClientSession(**session_kwargs) as session:
         tasks = [fetch(session, url, semaphore) for url in urls]
         return await asyncio.gather(*tasks)
 
@@ -101,15 +105,12 @@ async def google_search(api_key, query, top_k=5, timeout: int = 60, proxy=None, 
     query_str = str(query) if query is not None else ""
     query_encoded = urllib.parse.quote(query_str)
 
-    # 配置glm搜索服务
+    # 配置glm搜索服务（国内服务，无需代理）
     provider = "serper"
     base_url = "https://reader.psmoe.com/glm/s/"
     url = f"{base_url}?q={query_encoded}&provider={provider}&num={top_k}"
 
-    session_kwargs = {}
-    if proxy:
-        session_kwargs["proxy"] = proxy
-    async with aiohttp.ClientSession(**session_kwargs) as session:
+    async with aiohttp.ClientSession() as session:
         async with session.get(
             url,
             headers={
@@ -156,8 +157,8 @@ async def google_search(api_key, query, top_k=5, timeout: int = 60, proxy=None, 
     else:
         # 提取所有搜索结果的链接
         links = [item.get("link", "") for item in items if "link" in item]
-        # 并发抓取所有链接的完整网页内容
-        web_contents = await fetch_all(links)
+        # 并发抓取所有链接的完整网页内容（需要代理访问国外网站）
+        web_contents = await fetch_all(links, proxy=proxy)
         # 初始化上下文结果列表
         contexts = []
         # 遍历每个搜索结果项，同时获取索引和内容

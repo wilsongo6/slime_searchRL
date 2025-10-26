@@ -14,7 +14,7 @@ SEARCH_R1_CONFIGS = {
     "topk": 3,
     "google_api_key": "YOUR_API_KEY",  # Replace with your actual API key
     "snippet_only": True,  # Set to True to only return snippets
-    "proxy": None,  # Set to your proxy if needed
+    "proxy": "http://127.0.0.1:7890",  # Clash 代理端口
     "search_concurrency": 256,
     # rm
     "format_score": 0.2,
