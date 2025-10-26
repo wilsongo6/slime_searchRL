@@ -145,10 +145,17 @@ async def google_search(api_key, query, top_k=5, timeout: int = 60, proxy=None, 
     if snippet_only:
         for item in items:
             title = item.get("title", "")
-            context = " ".join(parse_snippet(item.get("snippet", "")))
+            snippet = item.get("snippet", "")
+            context = " ".join(parse_snippet(snippet))
+
             if title != "" or context != "":
                 title = "No title." if not title else title
-                context = "No snippet available." if not context else context
+                # 改进：区分是否有原始 snippet
+                if not context:
+                    if not snippet:
+                        context = "[NO_SNIPPET] Search result has no description"
+                    else:
+                        context = f"[FILTERED_OUT] Snippet too short: {snippet[:80]}"
                 contexts.append(
                     {
                         "document": {"contents": f'"{title}"\n{context}'},
@@ -167,15 +174,36 @@ async def google_search(api_key, query, top_k=5, timeout: int = 60, proxy=None, 
             title = item.get("title", "")
             # 提取搜索结果的片段摘要
             snippet = item.get("snippet", "")
+            link = item.get("link", "")
 
             # 从抓取的完整网页中提取与片段相关的段落上下文
             context = collect_context(snippet, web_contents[i])
+
             # 只保留有内容的结果（标题或上下文至少有一个非空）
             if title != "" or context != "":
                 # 如果标题为空，设置默认标题
                 title = "No title." if not title else title
-                # 如果上下文为空，设置默认提示
-                context = "No snippet available." if not context else context
+
+                # 如果上下文为空，提供详细的诊断信息
+                if not context:
+                    web_content = web_contents[i] if i < len(web_contents) else ""
+
+                    if not web_content:
+                        # 网页抓取失败
+                        context = f"[FETCH_FAILED] Could not fetch webpage (proxy/timeout/network issue)\nURL: {link}"
+                    elif not snippet:
+                        # 搜索结果本身没有 snippet
+                        context = f"[NO_SNIPPET] Search result has no description\nFetched: {len(web_content)} bytes from {link}"
+                    else:
+                        # 抓取成功但找不到匹配内容
+                        snippet_preview = snippet[:100] + "..." if len(snippet) > 100 else snippet
+                        context = (
+                            f"[NO_MATCH] Snippet not found in webpage content\n"
+                            f"Snippet: {snippet_preview}\n"
+                            f"Fetched: {len(web_content)} bytes from {link}\n"
+                            f"Possible reasons: JS-rendered page, snippet is AI-generated summary, encoding issue"
+                        )
+
                 # 将结果构造成指定格式并添加到列表
                 contexts.append(
                     {
