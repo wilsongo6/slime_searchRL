@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import random
 import re
@@ -125,6 +126,15 @@ async def _summarize_single_url(url: str, query: str) -> str:
 **Final Output Format using JSON format has "rational", "evidence", "summary" feilds**
 """
 
+        # 解析 JSON 的辅助函数：清理 markdown 代码块并解析
+        def parse_json_response(text: str) -> dict:
+            """解析 LLM 返回的 JSON，支持清理 markdown 代码块"""
+            # 清理 markdown 代码块格式 ```json ... ```
+            cleaned = re.sub(r'^```(?:json)?\s*\n?', '', text.strip())
+            cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+
+            return json.loads(cleaned)
+
         # 使用 asyncio.to_thread 包装同步的 OpenAI 调用
         def call_llm():
             client = OpenAI(
@@ -145,9 +155,20 @@ async def _summarize_single_url(url: str, query: str) -> str:
             return response.choices[0].message.content.strip()
 
         # 在线程池中执行同步调用
-        summary = await asyncio.to_thread(call_llm)
+        raw_output = await asyncio.to_thread(call_llm)
 
-        return summary
+        # 尝试解析 JSON 并提取 summary
+        try:
+            parsed_data = parse_json_response(raw_output)
+            if "summary" in parsed_data:
+                summary_text = parsed_data["summary"]
+                if isinstance(summary_text, str) and summary_text.strip():
+                    return summary_text.strip()
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass  # 解析失败，返回原始输出
+
+        # 没有 summary 或解析失败，返回完整原始输出
+        return raw_output
 
     except Exception as e:
         return f"[SUMMARY_FAILED] Error summarizing {url}: {str(e)}"
