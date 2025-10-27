@@ -54,7 +54,7 @@ async def fetch_page(url: str) -> str:
     if not url:
         return "Format error: No URL provided"
 
-    search_server_url = "http://172.16.66.212:9999"
+    search_server_url = "http://127.0.0.1:9999"
 
     for attempt in range(max_retries):
         try:
